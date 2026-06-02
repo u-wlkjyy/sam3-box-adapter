@@ -131,6 +131,13 @@ weights/
 checkpoints/
 sam3_logs/
 
+# Local experiments and generated assets
+synthetic_highway*/
+pred*/
+*_response.json
+tokenrouter_*
+R-C*.jpg
+
 # Data files
 *.h5
 *.hdf5

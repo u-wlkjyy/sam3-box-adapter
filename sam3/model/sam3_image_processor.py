@@ -110,7 +110,7 @@ class Sam3Processor:
         return state
 
     @torch.inference_mode()
-    def set_text_prompt(self, prompt: str, state: Dict):
+    def set_text_prompt(self, prompt: str, state: Dict, return_masks: bool = True):
         """Sets the text prompt and run the inference"""
 
         if "backbone_out" not in state:
@@ -122,10 +122,12 @@ class Sam3Processor:
         if "geometric_prompt" not in state:
             state["geometric_prompt"] = self.model._get_dummy_prompt()
 
-        return self._forward_grounding(state)
+        return self._forward_grounding(state, return_masks=return_masks)
 
     @torch.inference_mode()
-    def add_geometric_prompt(self, box: List, label: bool, state: Dict):
+    def add_geometric_prompt(
+        self, box: List, label: bool, state: Dict, return_masks: bool = True
+    ):
         """Adds a box prompt and run the inference.
         The image needs to be set, but not necessarily the text prompt.
         The box is assumed to be in [center_x, center_y, width, height] format and normalized in [0, 1] range.
@@ -149,7 +151,7 @@ class Sam3Processor:
         labels = torch.tensor([label], device=self.device, dtype=torch.bool).view(1, 1)
         state["geometric_prompt"].append_boxes(boxes, labels)
 
-        return self._forward_grounding(state)
+        return self._forward_grounding(state, return_masks=return_masks)
 
     def reset_all_prompts(self, state: Dict):
         """Removes all the prompts and results"""
@@ -180,24 +182,23 @@ class Sam3Processor:
         return state
 
     @torch.inference_mode()
-    def _forward_grounding(self, state: Dict):
+    def _forward_grounding(self, state: Dict, return_masks: bool = True):
         outputs = self.model.forward_grounding(
             backbone_out=state["backbone_out"],
             find_input=self.find_stage,
             geometric_prompt=state["geometric_prompt"],
             find_target=None,
+            return_masks=return_masks,
         )
 
         out_bbox = outputs["pred_boxes"]
         out_logits = outputs["pred_logits"]
-        out_masks = outputs["pred_masks"]
         out_probs = out_logits.sigmoid()
         presence_score = outputs["presence_logit_dec"].sigmoid().unsqueeze(1)
         out_probs = (out_probs * presence_score).squeeze(-1)
 
         keep = out_probs > self.confidence_threshold
         out_probs = out_probs[keep]
-        out_masks = out_masks[keep]
         out_bbox = out_bbox[keep]
 
         # convert to [x0, y0, x1, y1] format
@@ -208,15 +209,20 @@ class Sam3Processor:
         scale_fct = torch.tensor([img_w, img_h, img_w, img_h]).to(self.device)
         boxes = boxes * scale_fct[None, :]
 
-        out_masks = interpolate(
-            out_masks.unsqueeze(1),
-            (img_h, img_w),
-            mode="bilinear",
-            align_corners=False,
-        ).sigmoid()
+        if return_masks:
+            out_masks = outputs["pred_masks"][keep]
+            out_masks = interpolate(
+                out_masks.unsqueeze(1),
+                (img_h, img_w),
+                mode="bilinear",
+                align_corners=False,
+            ).sigmoid()
+            state["masks_logits"] = out_masks
+            state["masks"] = out_masks > 0.5
+        else:
+            state.pop("masks_logits", None)
+            state.pop("masks", None)
 
-        state["masks_logits"] = out_masks
-        state["masks"] = out_masks > 0.5
         state["boxes"] = boxes
         state["scores"] = out_probs
         return state

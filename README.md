@@ -1,3 +1,12 @@
+# SAM3-BoxAdapter Additions
+
+This fork adds a parameter-efficient, box-only detector prototype on top of a
+frozen SAM3 image backbone. See [README_BOX_ADAPTER.md](README_BOX_ADAPTER.md)
+for the method description, innovation/contribution summary, training commands,
+batch prediction workflow, and limitations.
+
+---
+
 # SAM 3: Segment Anything with Concepts
 
 Meta Superintelligence Labs

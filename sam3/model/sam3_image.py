@@ -443,6 +443,7 @@ class Sam3Image(torch.nn.Module):
         find_input,
         find_target,
         geometric_prompt: Prompt,
+        return_masks: bool = True,
         **kwargs,
     ):
         with torch.profiler.record_function("SAM3Image._encode_prompt"):
@@ -474,22 +475,26 @@ class Sam3Image(torch.nn.Module):
                 encoder_out=encoder_out,
             )
 
-        # Run segmentation heads
-        with torch.profiler.record_function("SAM3Image._run_segmentation_heads"):
-            # Apply id_mapping to img_ids if backbone features were recomputed
-            seg_img_ids = find_input.img_ids
-            if "id_mapping" in backbone_out and backbone_out["id_mapping"] is not None:
-                seg_img_ids = backbone_out["id_mapping"][seg_img_ids]
-            self._run_segmentation_heads(
-                out=out,
-                backbone_out=backbone_out,
-                img_ids=seg_img_ids,
-                vis_feat_sizes=encoder_out["vis_feat_sizes"],
-                encoder_hidden_states=out["encoder_hidden_states"],
-                prompt=prompt,
-                prompt_mask=prompt_mask,
-                hs=hs,
-            )
+        if return_masks:
+            # Run segmentation heads
+            with torch.profiler.record_function("SAM3Image._run_segmentation_heads"):
+                # Apply id_mapping to img_ids if backbone features were recomputed
+                seg_img_ids = find_input.img_ids
+                if (
+                    "id_mapping" in backbone_out
+                    and backbone_out["id_mapping"] is not None
+                ):
+                    seg_img_ids = backbone_out["id_mapping"][seg_img_ids]
+                self._run_segmentation_heads(
+                    out=out,
+                    backbone_out=backbone_out,
+                    img_ids=seg_img_ids,
+                    vis_feat_sizes=encoder_out["vis_feat_sizes"],
+                    encoder_hidden_states=out["encoder_hidden_states"],
+                    prompt=prompt,
+                    prompt_mask=prompt_mask,
+                    hs=hs,
+                )
 
         if self.training or self.num_interactive_steps_val > 0:
             self._compute_matching(out, self.back_convert(find_target))
