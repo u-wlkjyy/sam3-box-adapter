@@ -51,6 +51,9 @@ full inference compute. The SAM3 vision backbone remains the latency bottleneck.
 
 ## Files
 
+- `docs/sam3_box_adapter_architecture.png`: exported network structure diagram.
+- `docs/sam3_box_adapter_architecture.svg`: SVG version of the network diagram.
+- `docs/sam3_box_adapter_architecture.md`: Mermaid version for papers/README.
 - `scripts/sam3_frozen_detector.py`: train and predict with frozen SAM3 features,
   optional residual adapters, and a lightweight detector head.
 - `scripts/batch_predict_detector.py`: batch inference, visualization, contact
