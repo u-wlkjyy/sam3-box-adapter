@@ -13,8 +13,6 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.ops import generalized_box_iou, nms
 from torchvision.transforms import v2
 
-from sam3.model_builder import build_sam3_image_model
-
 
 def _unwrap_feature(x):
     return x.tensors if hasattr(x, "tensors") else x
@@ -250,6 +248,8 @@ class Sam3FrozenBackboneDetector(nn.Module):
         adapter_scale=1.0,
     ):
         super().__init__()
+        from sam3.model_builder import build_sam3_image_model
+
         self.sam3 = build_sam3_image_model(
             checkpoint_path=checkpoint_path,
             load_from_HF=False,

@@ -56,6 +56,8 @@ full inference compute. The SAM3 vision backbone remains the latency bottleneck.
 - `docs/sam3_box_adapter_architecture.md`: Mermaid version for papers/README.
 - `scripts/sam3_frozen_detector.py`: train and predict with frozen SAM3 features,
   optional residual adapters, and a lightweight detector head.
+- `scripts/sam3_backbone_distill.py`: distill SAM3 image-backbone features into
+  a smaller high-resolution student backbone.
 - `scripts/batch_predict_detector.py`: batch inference, visualization, contact
   sheet creation, and coarse YOLO-label evaluation.
 - `scripts/box_only_image.py`: run SAM3 text grounding while skipping mask output.
@@ -104,6 +106,42 @@ The saved detector checkpoint contains:
 - `num_classes`, `feature_levels`, and `resolution`.
 
 It does not contain the SAM3 checkpoint.
+
+## Backbone Distillation
+
+To reduce the SAM3 backbone latency bottleneck, distill the SAM3 image features
+into a small depthwise-CNN student. The student keeps the output feature shape
+compatible with the SAM3 teacher feature and uses a `1x1` projection neck to
+match the teacher channel count.
+
+Example with unlabeled highway frames:
+
+```bash
+python scripts/sam3_backbone_distill.py \
+  --images unlabeled_highway_frames \
+  --sam3-checkpoint checkpoints/sam3.pt \
+  --teacher-detector-checkpoint checkpoints/sam3_adapter_detector_highway.pt \
+  --output checkpoints/sam3_student_backbone.pt \
+  --resolution 1008 \
+  --feature-levels 1 \
+  --student-widths 32,64,128,192 \
+  --student-depths 1,2,4,2 \
+  --batch-size 1 \
+  --epochs 20 \
+  --workers 0 \
+  --lr 2e-4 \
+  --device cuda
+```
+
+The default student is a MobileNet/RepViT-style depthwise CNN:
+
+```text
+input -> stride 2 C32 -> stride 4 C64 -> stride 8 C128 -> stride 16 C192
+      -> 1x1 projection -> SAM3-compatible feature shape
+```
+
+The output checkpoint stores only the student backbone weights and config. A
+detector head can then be trained on top of this distilled student backbone.
 
 ## Prediction
 
